@@ -1,0 +1,6 @@
+.env
+__pycache__/
+.venv/
+audit_log.jsonl
+*.pyc
+.ruff_cache/
