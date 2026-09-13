@@ -1,5 +1,6 @@
-# AI Agentic Commerce Platform — Razorpay Test Mode
+# agentic-commerce-gemini
 
+## Overview
 An autonomous merchant storefront designed for **AI buyer agents**, fully built on Razorpay's test-mode APIs. This platform eliminates the need for human-driven UI checkouts, allowing AI agents to discover, browse, add to cart, apply discounts, and complete purchases entirely via API.
 
 ## Features
@@ -79,3 +80,9 @@ To run it:
    ```bash
    python -m agent.langgraph_agent
    ```
+
+## Getting Started
+Please refer to the source files for specific installation and usage instructions. Ensure that your local environment meets the standard requirements for the associated technologies.
+
+## Project Structure
+This project is organized into standard directories. Key configuration files and primary source code are located in the root directory.
