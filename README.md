@@ -1,4 +1,4 @@
-# agentic-commerce-gemini
+# agentic commerce gemini
 
 ## Overview
 An autonomous merchant storefront designed for **AI buyer agents**, fully built on Razorpay's test-mode APIs. This platform eliminates the need for human-driven UI checkouts, allowing AI agents to discover, browse, add to cart, apply discounts, and complete purchases entirely via API.
