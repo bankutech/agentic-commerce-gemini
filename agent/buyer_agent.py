@@ -29,8 +29,14 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
 from rich import box
+import os
+import sys
 
-console = Console()
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+console = Console(force_terminal=True)
 
 DEFAULT_BASE_URL = "http://localhost:8000"
 AGENT_ID = "ai_buyer_agent_001"
@@ -173,8 +179,10 @@ class AIBuyerAgent:
         # Show recommendations if any
         cart = result.get("cart", {})
         recs = cart.get("recommendations", [])
+        rec_method = cart.get("recommendation_method", "rule_based")
         if recs:
-            console.print("\n[yellow]💡 Recommendations:[/yellow]")
+            label = "🤖 AI-Ranked (Gemini)" if rec_method == "ai_ranked" else "📐 Rule-Based"
+            console.print(f"\n[yellow]💡 Recommendations ({label}):[/yellow]")
             for r in recs[:3]:
                 console.print(
                     f"  [{r['type'].upper()}] {r['product_name']} ({r['price']}) — {r['reason']}"
@@ -232,6 +240,10 @@ class AIBuyerAgent:
             )
 
         console.print(table)
+        rec_method = result.get("recommendation_method", "rule_based")
+        if result.get("recommendations"):
+            label = "🤖 AI-Ranked (Gemini)" if rec_method == "ai_ranked" else "📐 Rule-Based"
+            console.print(f"  Recommendations: {len(result.get('recommendations', []))} ({label})")
         console.print(f"  Subtotal: ₹{result.get('subtotal_paise', 0) / 100:,.2f}")
         if result.get("discount_paise", 0) > 0:
             console.print(f"  [yellow]Discount: -₹{result['discount_paise'] / 100:,.2f} ({result.get('campaign_code', '')})[/yellow]")

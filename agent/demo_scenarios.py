@@ -24,6 +24,9 @@ from rich.panel import Panel
 from rich import box
 
 import os
+import sys
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 console = Console(force_terminal=True)
@@ -129,7 +132,11 @@ def scenario_upsell_accepted():
     # Check recommendations
     cart_view = _get(f"/cart/{cart_id}")
     recs = cart_view.get("recommendations", [])
+    rec_method = cart_view.get("recommendation_method", "rule_based")
     upsell = next((r for r in recs if r["type"] == "upsell"), None)
+
+    method_label = "AI-ranked via Gemini" if rec_method == "ai_ranked" else "rule-based"
+    console.print(f"🧠 Recommendation method: {method_label}")
 
     if upsell:
         console.print(f"💡 Upsell detected: {upsell['product_name']} — {upsell['reason']}")

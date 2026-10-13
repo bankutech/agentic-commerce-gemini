@@ -10,23 +10,42 @@ from app.models.audit import AuditAction, GateResult
 from app.audit.audit_service import AuditService
 from app.catalog.catalog_service import CatalogService
 from app.recommendations.engine import RecommendationEngine, Recommendation
+from app.db.database import SqliteStore
 
 logger = logging.getLogger(__name__)
 
 
 class CartService:
-    """Manage shopping carts with spending bound enforcement and recommendations."""
+    """Manage shopping carts with spending bound enforcement and recommendations.
+    Carts are persisted to SQLite on every mutation and reloaded on startup —
+    a server restart does not lose an in-progress cart."""
 
     def __init__(
         self,
         catalog: CatalogService,
         audit: AuditService,
         recommendations: RecommendationEngine,
+        store: Optional[SqliteStore] = None,
     ):
         self._carts: dict[str, Cart] = {}
         self._catalog = catalog
         self._audit = audit
         self._recommendations = recommendations
+        self._store = store
+
+        if self._store:
+            for cart_id, data in self._store.get_all().items():
+                try:
+                    self._carts[cart_id] = Cart.model_validate(data)
+                except Exception as e:
+                    logger.warning("Failed to restore cart %s from storage: %s", cart_id, e)
+            if self._carts:
+                logger.info("Restored %d cart(s) from persistence.", len(self._carts))
+
+    def persist(self, cart: Cart) -> None:
+        """Write-through the cart's current state to SQLite."""
+        if self._store:
+            self._store.set(cart.id, cart.model_dump(mode="json"))
 
     def create_cart(
         self,
@@ -55,6 +74,7 @@ class CartService:
             )
 
         self._carts[cart.id] = cart
+        self.persist(cart)
 
         self._audit.log_action(
             action=AuditAction.CART_CREATED,
@@ -128,6 +148,7 @@ class CartService:
             ))
 
         cart.updated_at = datetime.now(timezone.utc)
+        self.persist(cart)
 
         self._audit.log_action(
             action=AuditAction.ITEM_ADDED,
@@ -162,6 +183,7 @@ class CartService:
         removed_amount = item.total_paise
         cart.items = [i for i in cart.items if i.product_id != product_id]
         cart.updated_at = datetime.now(timezone.utc)
+        self.persist(cart)
 
         self._audit.log_action(
             action=AuditAction.ITEM_REMOVED,
@@ -173,13 +195,14 @@ class CartService:
 
         return cart, f"Removed {removed_name}. New total: ₹{cart.total_paise / 100:.2f}."
 
-    def get_recommendations(self, cart_id: str) -> list[Recommendation]:
-        """Get product recommendations for the cart."""
+    def get_recommendations(self, cart_id: str) -> tuple[list[Recommendation], str]:
+        """Get product recommendations for the cart.
+        Returns (recommendations, method) where method is "ai_ranked" or "rule_based".
+        """
         cart = self._carts.get(cart_id)
         if not cart or not cart.items:
-            return []
-        product_ids = [item.product_id for item in cart.items]
-        return self._recommendations.get_recommendations(product_ids)
+            return [], "rule_based"
+        return self._recommendations.get_recommendations_for_cart(cart.items)
 
     def get_cart_view(self, cart_id: str) -> Optional[dict]:
         """Rich cart view with items, totals, bound status, and recommendations."""
@@ -187,7 +210,7 @@ class CartService:
         if not cart:
             return None
 
-        recs = self.get_recommendations(cart_id)
+        recs, rec_method = self.get_recommendations(cart_id)
         within, bound_status = cart.check_spending_bound()
 
         return {
@@ -217,4 +240,5 @@ class CartService:
                 "within_bound": within,
             } if cart.spending_bound else None,
             "recommendations": [r.to_dict() for r in recs],
+            "recommendation_method": rec_method,
         }

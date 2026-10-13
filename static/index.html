@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agentic Commerce — Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F8FAFC;
+    --surface:#FFFFFF;
+    --surface-2:#FFFFFF;
+    --line:#E2E8F0;
+    --ink:#0F172A;
+    --ink-dim:#475569;
+    --ink-faint:#94A3B8;
+    --gold:#3B82F6;
+    --gold-dim:#2563EB;
+    --teal:#8B5CF6;
+    --teal-dim:#7C3AED;
+    --red:#EF4444;
+    --red-dim:#DC2626;
+    --radius:16px;
+    --font-display:'Inter', -apple-system, sans-serif;
+    --font-body:'Inter', -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+
+  a{color:inherit;}
+
+  /* subtle paper-grain via layered radial gradients, not an image */
+  body::before{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(59,130,246,0.08), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(124,58,237,0.08), transparent 45%);
+  }
+
+  .wrap{position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:24px 28px 64px;}
+
+  /* ---------- header ---------- */
+  header.top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    flex-wrap:wrap; gap:14px;
+    padding-bottom:20px; margin-bottom:24px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:baseline; gap:12px;}
+  .brand .mark{
+    font-family:var(--font-display); font-weight:600; font-size:26px; letter-spacing:0.2px;
+  }
+  .brand .mark em{font-style:italic; color:var(--gold); font-weight:500;}
+  .brand .tag{
+    font-family:var(--font-mono); font-size:11px; color:var(--ink-faint);
+    text-transform:uppercase; letter-spacing:.12em;
+  }
+  .pills{display:flex; gap:8px; flex-wrap:wrap;}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.03em;
+    padding:5px 10px; border-radius:999px; border:1px solid var(--line);
+    background:var(--surface); color:var(--ink-dim);
+  }
+  .pill .dot{width:6px; height:6px; border-radius:50%; background:var(--ink-faint);}
+  .pill.on .dot{background:var(--teal); box-shadow:0 0 6px var(--teal);}
+  .pill.off .dot{background:var(--ink-faint);}
+  .pill.warn .dot{background:var(--gold); box-shadow:0 0 6px var(--gold);}
+
+  /* ---------- layout ---------- */
+  .grid{display:grid; grid-template-columns:1.5fr 1fr; gap:22px; align-items:start;}
+  @media (max-width:980px){ .grid{grid-template-columns:1fr;} }
+
+  section.panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px; margin-bottom:20px;
+  }
+  .panel h2{
+    font-family:var(--font-display); font-weight:500; font-size:18px; margin:0 0 4px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .panel h2 .no{color:var(--gold); font-family:var(--font-mono); font-size:13px;}
+  .panel .sub{color:var(--ink-dim); font-size:13px; margin:0 0 16px;}
+
+  /* ---------- catalog ---------- */
+  .catalog-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:18px;
+  }
+  .product-card{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:12px;
+    padding:16px; display:flex; flex-direction:column; gap:8px;
+    transition:transform .25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .25s ease, border-color .25s ease;
+    position: relative; overflow: hidden;
+  }
+  .product-card:hover{
+    border-color:var(--gold-dim);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+  }
+  .product-image {
+    height: 130px; margin: -16px -16px 16px -16px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; opacity: 0.9;
+  }
+  .product-image.smartphones { background: linear-gradient(135deg, #E0F2FE, #BAE6FD); }
+  .product-image.audio { background: linear-gradient(135deg, #F3E8FF, #D8B4FE); }
+  .product-image.accessories { background: linear-gradient(135deg, #DCFCE7, #86EFAC); }
+  .product-image.chargers { background: linear-gradient(135deg, #FEF9C3, #FDE047); }
+  .product-image.wearables { background: linear-gradient(135deg, #FCE7F3, #F9A8D4); }
+  .product-image.tablets { background: linear-gradient(135deg, #E0E7FF, #A5B4FC); }
+
+  .product-card .cat{
+    font-family:var(--font-mono); font-size:10px; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--teal); margin-bottom: -4px;
+  }
+  .product-card .name{font-size:15px; font-weight:600; line-height:1.3;}
+  .product-card .price{
+    font-family:var(--font-mono); font-size:16px; font-weight:500; color:var(--gold); margin-top:auto;
+  }
+  .product-card .stock{font-size:11px; color:var(--ink-faint);}
+  .product-card button{
+    margin-top:10px; width:100%; border-radius: 8px; font-size: 14px; padding: 10px;
+  }
+
+  /* ---------- buttons / inputs ---------- */
+  button{
+    font-family:var(--font-body); font-weight:600; font-size:13px;
+    padding:8px 14px; border-radius:8px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--ink); cursor:pointer;
+    transition:all .15s ease;
+  }
+  button:hover{border-color:var(--gold-dim); color:var(--gold); background: var(--line);}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.4; cursor:not-allowed; border-color: var(--line); color: var(--ink);}
+  button.primary{
+    background: linear-gradient(135deg, #3B82F6, #7C3AED); 
+    color:#FFFFFF; border:none; box-shadow: 0 4px 12px rgba(59,130,246,0.25);
+  }
+  button.primary:hover{
+    background: linear-gradient(135deg, #60A5FA, #8B5CF6);
+    box-shadow: 0 6px 16px rgba(59,130,246,0.35);
+    color: #FFFFFF;
+  }
+  button.ghost{background:transparent; border-color:transparent;}
+
+  input[type=text], input[type=number], input[type=email]{
+    font-family:var(--font-mono); font-size:13px;
+    background:var(--bg); border:1px solid var(--line); border-radius:6px;
+    color:var(--ink); padding:8px 10px; width:100%;
+  }
+  input:focus, button:focus, select:focus{
+    outline:2px solid var(--teal); outline-offset:1px;
+  }
+  label{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.06em; display:block; margin-bottom:5px;}
+  .field{margin-bottom:12px;}
+  .row{display:flex; gap:10px; align-items:end;}
+  .row > .field{flex:1;}
+
+  /* ---------- cart ---------- */
+  .empty-state{
+    color:var(--ink-faint); font-size:13px; padding:20px 0; text-align:center;
+    border:1px dashed var(--line); border-radius:8px;
+  }
+  .cart-line{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 0; border-bottom:1px solid var(--line); font-size:13px;
+  }
+  .cart-line:last-child{border-bottom:none;}
+  .cart-line .qty{color:var(--ink-faint); font-family:var(--font-mono); font-size:12px; margin-left:6px;}
+  .cart-line .amt{font-family:var(--font-mono); color:var(--ink);}
+  .cart-line .rm{
+    background:none; border:none; color:var(--red); font-size:11px; padding:2px 6px;
+  }
+
+  .budget-bar-track{
+    height:6px; background:var(--surface-2); border-radius:99px; overflow:hidden;
+    border:1px solid var(--line); margin:10px 0 4px;
+  }
+  .budget-bar-fill{height:100%; background:var(--teal); transition:width .3s ease;}
+  .budget-bar-fill.tight{background:var(--gold);}
+  .budget-label{font-family:var(--font-mono); font-size:11px; color:var(--ink-dim); display:flex; justify-content:space-between;}
+
+  .totals{margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
+  .totals .line{display:flex; justify-content:space-between; font-size:13px; padding:3px 0; color:var(--ink-dim);}
+  .totals .line.total{color:var(--ink); font-weight:700; font-size:15px; padding-top:6px;}
+  .totals .line .val{font-family:var(--font-mono);}
+
+  /* ---------- recommendations ---------- */
+  .rec-card{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; margin-bottom:8px; display:flex; justify-content:space-between; gap:10px; align-items:center;
+  }
+  .rec-card .name{font-size:13px; font-weight:600;}
+  .rec-card .reason{font-size:12px; color:var(--ink-dim); margin-top:2px;}
+  .rec-card .price{font-family:var(--font-mono); font-size:13px; color:var(--gold); white-space:nowrap;}
+  .method-badge{
+    font-family:var(--font-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase;
+    padding:3px 8px; border-radius:99px; display:inline-flex; gap:5px; align-items:center;
+  }
+  .method-badge.ai_ranked{background:rgba(79,184,166,0.12); color:var(--teal); border:1px solid var(--teal-dim);}
+  .method-badge.rule_based{background:rgba(217,164,65,0.1); color:var(--gold); border:1px solid var(--gold-dim);}
+
+  /* ---------- campaigns ---------- */
+  .campaign-chip{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--font-mono); font-size:12px;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:6px;
+    padding:6px 10px; margin:0 8px 8px 0; cursor:pointer;
+  }
+  .campaign-chip:hover{border-color:var(--gold-dim);}
+  .campaign-chip .code{color:var(--gold); font-weight:600;}
+  .campaign-chip .rem{color:var(--ink-faint);}
+
+  /* ---------- checkout result ---------- */
+  .result-box{
+    margin-top:14px; padding:12px; border-radius:8px; font-size:13px;
+    border:1px solid var(--line); background:var(--surface-2);
+  }
+  .result-box.ok{border-color:var(--teal-dim);}
+  .result-box.fail{border-color:var(--red-dim);}
+  .result-box .head{
+    font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    margin-bottom:6px; display:flex; align-items:center; gap:6px;
+  }
+  .result-box.ok .head{color:var(--teal);}
+  .result-box.fail .head{color:var(--red);}
+  .result-box pre{
+    white-space:pre-wrap; word-break:break-word; margin:0; font-family:var(--font-mono);
+    font-size:12px; color:var(--ink-dim);
+  }
+
+  /* ---------- ledger ticker (signature element) ---------- */
+  .ledger{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:0; overflow:hidden;
+  }
+  .ledger .ledger-head{
+    padding:16px 20px 12px; border-bottom:1px dashed var(--line);
+  }
+  .ledger .ledger-head h2{margin-bottom:2px;}
+  .ledger-strip{
+    max-height:420px; overflow-y:auto; padding:6px 0;
+  }
+  .ledger-strip::-webkit-scrollbar{width:6px;}
+  .ledger-strip::-webkit-scrollbar-thumb{background:var(--line); border-radius:99px;}
+
+  .tick{
+    display:grid; grid-template-columns:60px 1fr auto; gap:10px; align-items:start;
+    padding:9px 20px; border-bottom:1px solid var(--surface-2);
+    font-size:12px; animation:fadein .35s ease;
+  }
+  @keyframes fadein{ from{opacity:0; transform:translateY(-3px);} to{opacity:1; transform:translateY(0);} }
+  .tick .t{font-family:var(--font-mono); color:var(--ink-faint); font-size:11px; padding-top:2px;}
+  .tick .body .action{
+    font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--ink-dim); margin-bottom:2px;
+  }
+  .tick .body .expl{color:var(--ink); font-size:12.5px; line-height:1.4;}
+  .stamp{
+    font-family:var(--font-mono); font-size:10px; font-weight:600; letter-spacing:.08em;
+    padding:3px 8px; border-radius:4px; white-space:nowrap; align-self:start;
+    transform:rotate(-2deg);
+  }
+  .stamp.passed{color:var(--teal); border:1.5px solid var(--teal); background:rgba(79,184,166,0.08);}
+  .stamp.rejected{color:var(--red); border:1.5px solid var(--red); background:rgba(224,101,91,0.08);}
+  .stamp.na{color:var(--ink-faint); border:1.5px solid var(--line); background:transparent;}
+
+  /* ---------- metrics ---------- */
+  .metric-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .metric{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:12px;
+    padding:16px; transition: transform .2s ease, border-color .2s ease;
+  }
+  .metric:hover {
+    transform: translateY(-2px); border-color: var(--teal-dim);
+  }
+  .metric .k{font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint);}
+  .metric .v{font-family:var(--font-display); font-size:24px; font-weight:600; color:var(--ink); margin-top:6px;}
+  .metric .v.gold{color:var(--gold);}
+  .metric .v.teal{color:var(--teal);}
+  .metric-note{font-size:11px; color:var(--ink-faint); margin-top:12px; line-height:1.5;}
+
+  /* ---------- sidebar (cart) ---------- */
+  .sidebar-overlay{
+    position:fixed; top:0; left:0; width:100vw; height:100vh;
+    background:rgba(0,0,0,0.6); opacity:0; pointer-events:none;
+    transition:opacity 0.2s ease; z-index:90;
+  }
+  .sidebar-overlay.open{opacity:1; pointer-events:auto;}
+  
+  .sidebar{
+    position:fixed; top:0; right:0; width:400px; max-width:100vw; height:100vh;
+    background:var(--bg); border-left:1px solid var(--line);
+    padding:24px; box-shadow:-5px 0 30px rgba(0,0,0,0.5);
+    transform:translateX(100%); transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index:100; overflow-y:auto;
+  }
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-header{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:20px; border-bottom:1px solid var(--line); padding-bottom:12px;
+  }
+  .sidebar-header h2{font-family:var(--font-display); font-size:20px; margin:0;}
+  .close-btn{background:none; border:none; color:var(--ink-dim); font-size:24px; padding:0; cursor:pointer;}
+  .close-btn:hover{color:var(--ink);}
+
+  footer.foot{
+    text-align:center; color:var(--ink-faint); font-size:12px; padding-top:24px; font-family:var(--font-mono);
+  }
+  footer.foot a{color:var(--teal); text-decoration:none;}
+
+  @media (prefers-reduced-motion: reduce){
+    .tick{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="mark">Agentic Commerce — <em>Ledger</em></div>
+    </div>
+    <button id="openCartBtn" class="primary" style="margin-left:auto;">🛒 Cart</button>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT COLUMN: the shopping flow -->
+    <div>
+
+      <section class="panel">
+        <h2><span class="no">01</span> Catalog</h2>
+        <p class="sub">Agent-readable product catalog (Schema.org JSON-LD under the hood).</p>
+        <div class="catalog-grid" id="catalogGrid"></div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT COLUMN: the always-on ledger + growth metrics -->
+    <div>
+      <div class="ledger">
+        <div class="ledger-head">
+          <h2><span class="no">—</span> Live ledger</h2>
+          <p class="sub" style="margin:0;">Every audited action, stamped the moment it happens.</p>
+        </div>
+        <div class="ledger-strip" id="ledgerStrip">
+          <div class="empty-state" style="margin:16px 20px;">Waiting for activity…</div>
+        </div>
+      </div>
+
+      <section class="panel" style="margin-top:20px;">
+        <h2><span class="no">—</span> Revenue metrics</h2>
+        <p class="sub">Computed live from the audit trail — not simulated.</p>
+        <div class="metric-grid" id="metricGrid"></div>
+        <div class="metric-note" id="metricNote"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">Agentic Commerce Merchant API · <a href="/docs">API docs</a> · <a href="/">agent manifest</a></footer>
+</div>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="cartSidebar">
+  <div class="sidebar-header">
+    <h2>Your Cart</h2>
+    <button class="close-btn" id="closeSidebarBtn">&times;</button>
+  </div>
+  
+  <section class="panel" style="border:none; padding:0; margin-bottom:20px; background:transparent;">
+    <div id="noCart" style="text-align:center; padding: 40px 20px;">
+      <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.8;">🛒</div>
+      <h3 style="margin: 0 0 8px; font-family: var(--font-display); font-size: 20px;">Your cart is empty</h3>
+      <p style="color: var(--ink-dim); font-size: 14px; margin: 0 0 24px; line-height: 1.5;">Set a spending bound to create a cart. The AI agent will protect this budget.</p>
+      
+      <div style="text-align: left; max-width: 280px; margin: 0 auto; background: var(--surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--line);">
+        <label for="budgetInput" style="margin-bottom:8px;">Budget (₹)</label>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <input type="number" id="budgetInput" value="50000" min="0" style="padding: 10px; font-size: 15px;" />
+          <button class="primary" id="createCartBtn" style="padding: 10px; font-size: 14px; width: 100%;">Create Cart</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cartArea" style="display:none;">
+      <div class="budget-label"><span id="cartIdLabel"></span><span id="budgetText"></span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" id="budgetFill" style="width:0%"></div></div>
+
+      <div id="cartLines" style="margin-top:14px;"></div>
+
+      <div id="cartTotals" class="totals" style="display:none;">
+        <div class="line"><span>Subtotal</span><span class="val" id="totSub">—</span></div>
+        <div class="line" id="totDiscRow" style="display:none;"><span>Discount</span><span class="val" id="totDisc">—</span></div>
+        <div class="line total"><span>Total</span><span class="val" id="totTotal">—</span></div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>Recommendations <span class="method-badge" id="recMethodBadge" style="display:none;"></span></label>
+        <div id="recArea"><div class="empty-state">Add an item to see upsell / cross-sell suggestions.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="campaignPanel" style="display:none; border:none; padding:0; margin-bottom:24px; background:transparent;">
+    <h2 style="font-family: var(--font-display); font-size: 18px; margin-bottom: 4px;">Campaigns</h2>
+    <p class="sub" style="margin-bottom: 12px;">Bounded, capped discount codes. Click one to apply.</p>
+    <div id="campaignChips"></div>
+  </section>
+
+  <section class="panel" id="checkoutPanel" style="display:none; border:none; padding:0; background:transparent;">
+    <h2 style="font-family: var(--font-display); font-size: 18px; margin-bottom: 4px;">Checkout</h2>
+    <p class="sub" style="margin-bottom: 16px;">Preview computes the final total. Confirm creates the Razorpay order.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <button id="previewBtn" style="padding: 10px;">Preview</button>
+      <button class="primary" id="confirmBtn" disabled style="padding: 10px;">Confirm &amp; Pay</button>
+    </div>
+    <div id="checkoutResult" style="margin-top:12px;"></div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const inr = (paise) => "₹" + (paise/100).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+let state = { cartId: null, budgetPaise: 0 };
+
+async function api(path, opts={}){
+  const res = await fetch(path, {
+    headers: {'Content-Type':'application/json'},
+    ...opts,
+  });
+  const data = await res.json().catch(()=> ({}));
+  return {ok: res.ok, status: res.status, data};
+}
+
+// ---------- sidebar logic ----------
+function openSidebar() {
+  $('cartSidebar').classList.add('open');
+  $('sidebarOverlay').classList.add('open');
+}
+function closeSidebar() {
+  $('cartSidebar').classList.remove('open');
+  $('sidebarOverlay').classList.remove('open');
+}
+$('openCartBtn').addEventListener('click', openSidebar);
+$('closeSidebarBtn').addEventListener('click', closeSidebar);
+$('sidebarOverlay').addEventListener('click', closeSidebar);
+
+// ---------- catalog ----------
+async function loadCatalog(){
+  const {data} = await api('/catalog');
+  const items = (data.itemListElement || []).map(li => li.item);
+  $('catalogGrid').innerHTML = items.map(p => {
+    const offer = p.offers || {};
+    const price = offer.price ? Math.round(parseFloat(offer.price)*100) : 0;
+    const inStock = (offer.availability||'').includes('InStock');
+    const rawId = p['@id'] ? p['@id'].replace('urn:merchant:product:', '') : (p.sku || p.productID || '');
+    const icon = p.category === 'smartphones' ? '📱' :
+                 p.category === 'audio' ? '🎧' :
+                 p.category === 'chargers' ? '⚡' :
+                 p.category === 'wearables' ? '⌚' :
+                 p.category === 'tablets' ? '💊' : '📦';
+                 
+    return `<div class="product-card">
+      <div class="product-image ${p.category}">${icon}</div>
+      <span class="cat">${p.category || ''}</span>
+      <span class="name">${p.name}</span>
+      <span class="price">${inr(price)}</span>
+      <span class="stock">${inStock ? 'In stock' : 'Out of stock'}</span>
+      <button data-id="${rawId}" class="addBtn">+ Add to cart</button>
+    </div>`;
+  }).join('');
+
+  document.querySelectorAll('.addBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=> {
+      if (!state.cartId) {
+        openSidebar();
+      } else {
+        addToCart(btn.dataset.id);
+      }
+    });
+  });
+}
+
+// ---------- cart ----------
+async function createCart(){
+  const budgetRupees = parseFloat($('budgetInput').value || '0');
+  const budgetPaise = Math.round(budgetRupees*100);
+  const {data} = await api('/cart', {method:'POST', body: JSON.stringify({agent_id:'dashboard_user', max_budget_paise: budgetPaise})});
+  state.cartId = data.cart_id;
+  state.budgetPaise = budgetPaise;
+  $('noCart').style.display='none';
+  $('cartArea').style.display='block';
+  $('campaignPanel').style.display='block';
+  $('checkoutPanel').style.display='block';
+  await Promise.all([refreshCart(), loadCampaigns(), loadCatalog()]);
+}
+
+async function addToCart(productId){
+  if(!state.cartId || !productId) return;
+  const res = await api(`/cart/${state.cartId}/items`, {method:'POST', body: JSON.stringify({product_id: productId, quantity:1})});
+  if (!res.ok) {
+    alert(res.data.detail || "Failed to add item to cart.");
+  } else {
+    openSidebar(); // Open sidebar when successfully added
+  }
+  await refreshCart();
+}
+
+async function removeFromCart(productId){
+  await api(`/cart/${state.cartId}/items/${productId}`, {method:'DELETE'});
+  await refreshCart();
+}
+
+async function refreshCart(){
+  if(!state.cartId) return;
+  const {data: cart} = await api(`/cart/${state.cartId}`);
+  if(!cart) return;
+
+  // Update header button count
+  const lines = cart.items || [];
+  const totalItems = lines.reduce((acc, curr) => acc + curr.quantity, 0);
+  $('openCartBtn').textContent = `🛒 Cart (${totalItems})`;
+
+  $('cartIdLabel').textContent = cart.cart_id;
+  const spent = cart.total_paise || 0;
+  const pct = Math.min(100, Math.round((spent / (state.budgetPaise||1))*100));
+  $('budgetFill').style.width = pct+'%';
+  $('budgetFill').className = 'budget-bar-fill' + (pct>80?' tight':'');
+  $('budgetText').textContent = `${inr(spent)} of ${inr(state.budgetPaise)} used`;
+
+  $('cartLines').innerHTML = lines.length ? lines.map(i=>`
+    <div class="cart-line">
+      <span>${i.product_name}<span class="qty">×${i.quantity}</span></span>
+      <span><span class="amt">${inr(i.line_total_paise)}</span> <button class="rm" onclick="removeFromCart('${i.product_id}')">remove</button></span>
+    </div>`).join('') : '<div class="empty-state">Cart is empty — add something from the catalog.</div>';
+
+  if(lines.length){
+    $('cartTotals').style.display='block';
+    $('totSub').textContent = inr(cart.subtotal_paise ?? spent);
+    if((cart.discount_paise||0) > 0){
+      $('totDiscRow').style.display='flex';
+      $('totDisc').textContent = '−' + inr(cart.discount_paise);
+    } else {
+      $('totDiscRow').style.display='none';
+    }
+    $('totTotal').textContent = inr(cart.total_paise);
+  } else {
+    $('cartTotals').style.display='none';
+  }
+
+  renderRecommendations(cart.recommendations || [], cart.recommendation_method || 'rule_based');
+}
+
+function renderRecommendations(recs, method){
+  const badge = $('recMethodBadge');
+  if(recs.length){
+    badge.style.display='inline-flex';
+    badge.className = 'method-badge ' + method;
+    badge.textContent = method === 'ai_ranked' ? '🤖 Gemini-ranked' : '📐 rule-based';
+  } else {
+    badge.style.display='none';
+  }
+  $('recArea').innerHTML = recs.length ? recs.map(r=>`
+    <div class="rec-card">
+      <div>
+        <div class="name">${r.product_name} <span style="color:var(--ink-faint); font-weight:400;">· ${r.type}</span></div>
+        <div class="reason">${r.reason}</div>
+      </div>
+      <div class="price">${r.price}</div>
+    </div>`).join('') : '<div class="empty-state">Add an item to see upsell / cross-sell suggestions.</div>';
+}
+
+// ---------- campaigns ----------
+async function loadCampaigns(){
+  const {data} = await api('/campaigns');
+  const chips = (data.campaigns || []).map(c => `
+    <span class="campaign-chip" onclick="applyCampaign('${c.code}')">
+      <span class="code">${c.code}</span><span>${c.description||''}</span><span class="rem">${c.uses_remaining} left</span>
+    </span>`).join('');
+  $('campaignChips').innerHTML = chips || '<div class="empty-state">No active campaigns.</div>';
+}
+
+async function applyCampaign(code){
+  if(!state.cartId) return;
+  await api(`/cart/${state.cartId}/apply-campaign`, {method:'POST', body: JSON.stringify({code})});
+  await refreshCart();
+}
+
+// ---------- checkout ----------
+async function previewCheckout(){
+  if(!state.cartId) return;
+  const {ok, data} = await api(`/cart/${state.cartId}/checkout`, {method:'POST'});
+  const box = $('checkoutResult');
+  if(ok){
+    $('confirmBtn').disabled = false;
+    box.innerHTML = `<div class="result-box ok"><div class="head">Preview ready</div>
+      <pre>Subtotal ${inr(data.subtotal_paise)}\nDiscount ${inr(data.discount_paise||0)}\nTotal ${inr(data.total_paise)}\nRecommendations via: ${data.recommendation_method}</pre></div>`;
+  } else {
+    box.innerHTML = `<div class="result-box fail"><div class="head">Rejected</div><pre>${data.detail||'Unknown error'}</pre></div>`;
+  }
+}
+
+async function confirmCheckout(){
+  if(!state.cartId) return;
+  const {ok, data} = await api(`/cart/${state.cartId}/confirm`, {method:'POST', body: JSON.stringify({
+    customer_name:'Dashboard User', customer_email:'demo@example.com', customer_contact:'+919999999999'
+  })});
+  const box = $('checkoutResult');
+  if(ok){
+    box.innerHTML = `<div class="result-box ok"><div class="head">Order created</div><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+  } else {
+    box.innerHTML = `<div class="result-box fail"><div class="head">Payment gate failed — handled gracefully</div><pre>${data.detail||'Unknown error'}</pre></div>`;
+  }
+  refreshMetrics();
+}
+
+// ---------- live ledger ----------
+let lastAuditTopStamp = null;
+async function pollLedger(){
+  const {data} = await api('/audit?limit=30');
+  const entries = data.entries || [];
+  const strip = $('ledgerStrip');
+  if(entries.length === 0){
+    strip.innerHTML = '<div class="empty-state" style="margin:16px 20px;">Waiting for activity…</div>';
+    return;
+  }
+  const topStamp = entries[0].timestamp;
+  if (topStamp === lastAuditTopStamp) return;
+  lastAuditTopStamp = topStamp;
+  
+  strip.innerHTML = entries.map(e=>{
+    const stampClass = e.gate_check === 'passed' ? 'passed' : e.gate_check === 'rejected' ? 'rejected' : 'na';
+    const stampText = e.gate_check === 'passed' ? 'PASSED' : e.gate_check === 'rejected' ? 'REJECTED' : '—';
+    const t = new Date(e.timestamp);
+    const time = t.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    return `<div class="tick">
+      <span class="t">${time}</span>
+      <div class="body">
+        <div class="action">${e.action}</div>
+        <div class="expl">${e.explanation}</div>
+      </div>
+      <span class="stamp ${stampClass}">${stampText}</span>
+    </div>`;
+  }).join('');
+}
+
+// ---------- metrics ----------
+let lastMetricsJson = null;
+async function refreshMetrics(){
+  const {data} = await api('/metrics/revenue');
+  if(!data.summary) return;
+  
+  const currentJson = JSON.stringify(data);
+  if(currentJson === lastMetricsJson) return;
+  lastMetricsJson = currentJson;
+
+  const m = [
+    ['Orders confirmed', data.summary.orders_confirmed, ''],
+    ['GMV', data.summary.total_gmv_display, 'gold'],
+    ['Avg order value', data.summary.average_order_value_display, ''],
+    ['Discount given', data.discounts.total_discount_given_display, ''],
+    ['AI-ranked recs', data.recommendation_engine.ai_ranked_events, 'teal'],
+    ['Rule-based recs', data.recommendation_engine.rule_based_events, ''],
+    ['Bound rejections', data.gated_rejections.spending_bound_exceeded, ''],
+    ['Payment errors', data.gated_rejections.razorpay_errors, ''],
+  ];
+  $('metricGrid').innerHTML = m.map(([k,v,cls])=>`
+    <div class="metric"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`).join('');
+  $('metricNote').textContent = data.note || '';
+}
+
+// ---------- wire up ----------
+$('createCartBtn').addEventListener('click', createCart);
+$('previewBtn').addEventListener('click', previewCheckout);
+$('confirmBtn').addEventListener('click', confirmCheckout);
+
+loadCatalog();
+refreshMetrics();
+pollLedger();
+setInterval(pollLedger, 3000);
+setInterval(refreshMetrics, 6000);
+</script>
+</body>
+</html>

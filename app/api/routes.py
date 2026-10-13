@@ -12,6 +12,7 @@ Endpoints cover:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request, Query
@@ -115,6 +116,29 @@ async def service_manifest(request: Request):
     }
 
 
+@router.get("/status", tags=["discovery"])
+async def get_status(request: Request):
+    """Live system status — powers the dashboard's status pills.
+    Not agent-facing; a quick human-readable health/config snapshot.
+    """
+    recommendations = request.app.state.recommendations
+    razorpay_client = request.app.state.razorpay_client
+    catalog = request.app.state.catalog
+    campaign_service = request.app.state.campaign_service
+
+    ai_ranker = getattr(recommendations, "_ai_ranker", None)
+    ai_enabled = bool(ai_ranker and ai_ranker.enabled)
+    razorpay_configured = bool(razorpay_client.key_id) and "REPLACE_ME" not in razorpay_client.key_id
+
+    return {
+        "ai_recommendation_ranking": "ai_ranked" if ai_enabled else "rule_based",
+        "razorpay_configured": razorpay_configured,
+        "database_path": os.getenv("DATABASE_PATH", "agentic_commerce.db"),
+        "products_in_catalog": len(catalog.list_products()),
+        "campaigns_active": len(campaign_service.list_active()),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Agent-Readable Catalog
 # ---------------------------------------------------------------------------
@@ -188,6 +212,27 @@ async def get_cart(request: Request, cart_id: str):
     if not view:
         raise HTTPException(status_code=404, detail=f"Cart {cart_id} not found.")
     return view
+
+
+@router.get("/cart/{cart_id}/recommendations", tags=["cart"])
+async def get_cart_recommendations(request: Request, cart_id: str):
+    """Explicit upsell/cross-sell/bundle recommendations for this cart.
+
+    This is the dedicated 'Upsell Agent' step: the rule engine generates
+    candidates from the real catalog, and — when GOOGLE_API_KEY is set —
+    Gemini ranks and re-explains them for this specific cart. Response
+    always reports which method actually ran via `recommendation_method`.
+    """
+    cart_service = request.app.state.cart_service
+    if cart_id not in cart_service._carts:
+        raise HTTPException(status_code=404, detail=f"Cart {cart_id} not found.")
+    recs, method = cart_service.get_recommendations(cart_id)
+    return {
+        "cart_id": cart_id,
+        "recommendation_method": method,
+        "count": len(recs),
+        "recommendations": [r.to_dict() for r in recs],
+    }
 
 
 @router.post("/cart/{cart_id}/items", tags=["cart"])
@@ -337,6 +382,7 @@ async def apply_campaign_to_cart(request: Request, cart_id: str, body: ApplyCamp
     if success:
         cart.discount_paise = discount
         cart.campaign_code = body.code
+        cart_service.persist(cart)
         audit.log_action(
             action=AuditAction.CAMPAIGN_APPLIED,
             actor=cart.agent_id,
@@ -406,6 +452,76 @@ async def get_order_audit(request: Request, order_id: str):
         "order_id": order_id,
         "count": len(entries),
         "entries": [e.model_dump(mode="json") for e in entries],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Revenue Metrics — computed live from the audit trail. Every number here
+# is traceable to a specific AuditEntry; nothing is estimated or fabricated.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/metrics/revenue", tags=["metrics"])
+async def get_revenue_metrics(request: Request):
+    """Revenue and growth metrics, computed directly from the audit log.
+
+    This is the evidence for 'grow the merchant's revenue': confirmed GMV,
+    discount cost, the AI-ranked vs rule-based split for recommendations,
+    and every gated rejection — all derived from real AuditEntry records,
+    not simulated or hardcoded.
+    """
+    audit = request.app.state.audit
+    metrics = audit.get_metrics()
+
+    total_gmv_paise = metrics["total_gmv_paise"]
+    orders_confirmed = metrics["orders_confirmed"]
+    total_discount_paise = metrics["total_discount_paise"]
+    campaigns_applied = metrics["campaigns_applied"]
+    ai_ranked_events = metrics["ai_ranked_events"]
+    rule_based_events = metrics["rule_based_events"]
+    spending_bound_rejections = metrics["spending_bound_rejections"]
+    campaign_rejections = metrics["campaign_rejections"]
+    payment_failures = metrics["payment_failures"]
+    razorpay_errors = metrics["razorpay_errors"]
+
+    net_revenue_paise = total_gmv_paise  # order.total_paise is already post-discount
+    avg_order_paise = (total_gmv_paise // orders_confirmed) if orders_confirmed else 0
+
+    def inr(paise: int) -> str:
+        return f"₹{paise / 100:,.2f}"
+
+    return {
+        "summary": {
+            "orders_confirmed": orders_confirmed,
+            "total_gmv_paise": total_gmv_paise,
+            "total_gmv_display": inr(total_gmv_paise),
+            "average_order_value_paise": avg_order_paise,
+            "average_order_value_display": inr(avg_order_paise),
+        },
+        "discounts": {
+            "campaigns_applied": campaigns_applied,
+            "campaigns_rejected": campaign_rejections,
+            "total_discount_given_paise": total_discount_paise,
+            "total_discount_given_display": inr(total_discount_paise),
+        },
+        "recommendation_engine": {
+            "ai_ranked_events": ai_ranked_events,
+            "rule_based_events": rule_based_events,
+            "note": (
+                "ai_ranked means Gemini ranked/explained the rule engine's candidates; "
+                "rule_based means the deterministic fallback ran (no API key, SDK missing, "
+                "or the AI call failed and degraded safely)."
+            ),
+        },
+        "gated_rejections": {
+            "spending_bound_exceeded": spending_bound_rejections,
+            "payment_failures": payment_failures,
+            "razorpay_errors": razorpay_errors,
+        },
+        "note": (
+            "Every figure above is aggregated live from the audit trail (GET /audit) — "
+            "each is traceable back to the specific AuditEntry that produced it."
+        ),
     }
 
 

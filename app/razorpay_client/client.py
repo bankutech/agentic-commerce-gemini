@@ -166,6 +166,11 @@ class MerchantRazorpayClient:
         notes: Optional[dict[str, str]] = None,
     ) -> RazorpayResult:
         """Create a Razorpay order (payment intent)."""
+        if "REPLACE_ME" in self.key_id:
+            logger.info("Mocking create_order since Razorpay keys are not provided.")
+            import uuid
+            return RazorpayResult(success=True, data={"id": f"order_{uuid.uuid4().hex[:14]}"})
+            
         payload: dict[str, Any] = {
             "amount": amount_paise,
             "currency": currency,
@@ -212,6 +217,12 @@ class MerchantRazorpayClient:
         callback_url: Optional[str] = None,
     ) -> RazorpayResult:
         """Create a shareable payment link."""
+        if "REPLACE_ME" in self.key_id:
+            logger.info("Mocking create_payment_link since Razorpay keys are not provided.")
+            import uuid
+            plink_id = f"plink_{uuid.uuid4().hex[:14]}"
+            return RazorpayResult(success=True, data={"id": plink_id, "short_url": f"https://rzp.io/i/{plink_id}"})
+
         payload: dict[str, Any] = {
             "amount": amount_paise,
             "currency": currency,

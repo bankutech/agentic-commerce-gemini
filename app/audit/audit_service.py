@@ -23,6 +23,19 @@ class AuditService:
         self._log_path = Path(log_path)
         # Ensure log directory exists
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        self._metrics = {
+            "total_gmv_paise": 0,
+            "orders_confirmed": 0,
+            "total_discount_paise": 0,
+            "campaigns_applied": 0,
+            "ai_ranked_events": 0,
+            "rule_based_events": 0,
+            "spending_bound_rejections": 0,
+            "campaign_rejections": 0,
+            "payment_failures": 0,
+            "razorpay_errors": 0,
+        }
 
     def log(self, entry: AuditEntry) -> AuditEntry:
         """Append an audit entry. Returns the logged entry."""
@@ -34,6 +47,29 @@ class AuditService:
             self._by_order.setdefault(entry.order_id, []).append(entry)
         if entry.cart_id:
             self._by_cart.setdefault(entry.cart_id, []).append(entry)
+
+        # Update metrics incrementally
+        if entry.action == AuditAction.ORDER_CREATED and entry.amount_paise:
+            self._metrics["total_gmv_paise"] += entry.amount_paise
+            self._metrics["orders_confirmed"] += 1
+        elif entry.action == AuditAction.CAMPAIGN_APPLIED:
+            self._metrics["campaigns_applied"] += 1
+            if entry.amount_paise:
+                self._metrics["total_discount_paise"] += entry.amount_paise
+        elif entry.action == AuditAction.CAMPAIGN_REJECTED:
+            self._metrics["campaign_rejections"] += 1
+        elif entry.action == AuditAction.RECOMMENDATION_MADE:
+            method = (entry.metadata or {}).get("method")
+            if method == "ai_ranked":
+                self._metrics["ai_ranked_events"] += 1
+            else:
+                self._metrics["rule_based_events"] += 1
+        elif entry.action == AuditAction.SPENDING_BOUND_EXCEEDED:
+            self._metrics["spending_bound_rejections"] += 1
+        elif entry.action == AuditAction.PAYMENT_FAILED:
+            self._metrics["payment_failures"] += 1
+        elif entry.action == AuditAction.RAZORPAY_ERROR:
+            self._metrics["razorpay_errors"] += 1
 
         # Persist to JSONL
         try:
@@ -112,3 +148,7 @@ class AuditService:
     def get_all_entries(self) -> list[AuditEntry]:
         """Get all entries (careful with large logs)."""
         return list(self._entries)
+        
+    def get_metrics(self) -> dict:
+        """Get live metrics calculated incrementally."""
+        return self._metrics.copy()

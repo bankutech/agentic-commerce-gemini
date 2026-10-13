@@ -6,9 +6,13 @@ Every recommendation includes a human/AI-readable `reason`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from app.models.product import Product
+from app.models.cart import CartItem
+
+if TYPE_CHECKING:
+    from app.recommendations.ai_ranker import AIRecommendationRanker
 
 
 @dataclass
@@ -103,11 +107,35 @@ BUNDLE_RULES: list[tuple[set[str], str, str]] = [
 class RecommendationEngine:
     """Rule-based recommendation engine with explainability."""
 
-    def __init__(self, catalog_products: dict[str, Product]):
+    def __init__(
+        self,
+        catalog_products: dict[str, Product],
+        ai_ranker: Optional["AIRecommendationRanker"] = None,
+    ):
         self._products = catalog_products
+        self._ai_ranker = ai_ranker
 
     def update_catalog(self, products: dict[str, Product]) -> None:
         self._products = products
+
+    def get_recommendations_for_cart(
+        self,
+        cart_items: list[CartItem],
+        max_recommendations: int = 5,
+    ) -> tuple[list[Recommendation], str]:
+        """Rule engine generates candidates; Gemini (if configured) ranks and
+        re-explains them. Returns (recommendations, method) where method is
+        "ai_ranked" or "rule_based" (whenever no key is configured, the SDK
+        is missing, or the AI call fails for any reason).
+        """
+        product_ids = [i.product_id for i in cart_items]
+        candidates = self.get_recommendations(product_ids, max_recommendations)
+
+        if self._ai_ranker and self._ai_ranker.enabled and candidates:
+            ranked, method = self._ai_ranker.rank(cart_items, candidates)
+            return ranked[:max_recommendations], method
+
+        return candidates, "rule_based"
 
     def get_recommendations(
         self,

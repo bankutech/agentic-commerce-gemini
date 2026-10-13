@@ -4,7 +4,7 @@ This module provides a LangGraph ReAct agent that interacts with the
 Agentic Commerce API to autonomously fulfill natural language shopping requests.
 
 Usage:
-    set OPENAI_API_KEY=sk-...
+    set GOOGLE_API_KEY=your-gemini-key
     python -m agent.langgraph_agent "I have a budget of Rs 100,000. Buy a Pixel 9 and earbuds."
 """
 from __future__ import annotations
@@ -16,12 +16,14 @@ import sys
 import httpx
 from dotenv import load_dotenv
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from rich.console import Console
 from rich.panel import Panel
 
 # Support Windows console encoding for rich
+import sys
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 console = Console(force_terminal=True)
 
@@ -109,6 +111,18 @@ def add_to_cart(cart_id: str, product_id: str, quantity: int = 1) -> dict:
 
 
 @tool
+def get_recommendations(cart_id: str) -> dict:
+    """Get upsell/cross-sell/bundle recommendations for the current cart.
+    Call this after adding the customer's primary item and before checkout,
+    to see if there's a relevant upgrade or add-on worth suggesting to them.
+    The response's `recommendation_method` tells you whether these were
+    ranked by Gemini for this specific cart ("ai_ranked") or came from the
+    deterministic rule fallback ("rule_based").
+    """
+    return _get(f"/cart/{cart_id}/recommendations")
+
+
+@tool
 def list_campaigns() -> dict:
     """List available promotional campaign codes and discounts."""
     return _get("/campaigns")
@@ -147,11 +161,24 @@ tools = [
     search_products,
     create_cart,
     add_to_cart,
+    get_recommendations,
     list_campaigns,
     apply_campaign,
     preview_checkout,
     confirm_checkout,
 ]
+
+SYSTEM_PROMPT = (
+    "You are an AI buyer agent shopping on behalf of a customer on an "
+    "agentic-commerce storefront. Follow this flow: discover the store, "
+    "find the product the customer wants, create a cart with their budget, "
+    "add the item. Then ALWAYS call get_recommendations before checkout — "
+    "this is the store's upsell/cross-sell step, and if a recommendation "
+    "is a clear, relevant fit for the customer's stated goal, add it too "
+    "(but never exceed their budget). Check for applicable campaign codes, "
+    "then preview_checkout to confirm the final total, then confirm_checkout "
+    "only once the customer would clearly want to proceed at that price."
+)
 
 
 def run_agent(prompt: str):
@@ -170,41 +197,57 @@ def run_agent(prompt: str):
         border_style="blue",
     ))
 
-    # Initialize the LLM (Gemini)
+    # Initialize the LLM (Gemini) — use gemini-3.6-flash for latest API compatibility
     from langchain_google_genai import ChatGoogleGenerativeAI
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", temperature=0)
     
     # Create the ReAct agent graph
-    from langchain.agents import create_agent
-    # Actually, the modern langgraph import is still from langgraph.prebuilt import create_react_agent for graphs, but the warning said to use langchain.agents. Let me just suppress the warning or use the right import.
     from langgraph.prebuilt import create_react_agent
     import warnings
+    import time as _time
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     agent_executor = create_react_agent(llm, tools)
 
     console.print("\n[bold cyan]═══ Agent Execution ═══[/bold cyan]")
-    
-    # Stream events from the agent
-    for event in agent_executor.stream(
-        {"messages": [("user", prompt)]}, 
-        stream_mode="values"
-    ):
-        message = event["messages"][-1]
-        
-        # Format the output beautifully using rich
-        if message.type == "ai":
-            if getattr(message, "tool_calls", None):
-                for tc in message.tool_calls:
-                    console.print(f"[magenta]🛠️  Calling Tool:[/magenta] {tc['name']} {tc['args']}")
+
+    # Stream events from the agent with automatic retry on rate-limit errors.
+    # The free-tier Gemini API can hit 429 RESOURCE_EXHAUSTED; we back off
+    # and retry up to 5 times so the demo completes without manual restarts.
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            for event in agent_executor.stream(
+                {"messages": [("system", SYSTEM_PROMPT), ("user", prompt)]},
+                stream_mode="values"
+            ):
+                message = event["messages"][-1]
+                
+                # Format the output beautifully using rich
+                if message.type == "ai":
+                    if getattr(message, "tool_calls", None):
+                        for tc in message.tool_calls:
+                            console.print(f"[magenta]🛠️  Calling Tool:[/magenta] {tc['name']} {tc['args']}")
+                    else:
+                        console.print(f"\n[green]🤖 Agent:[/green] {message.content}")
+                
+                elif message.type == "tool":
+                    # For tool responses, truncate if they are too long
+                    content = message.content
+                    if len(content) > 300:
+                        content = content[:300] + "... [truncated]"
+                    console.print(f"[dim]🔧 Tool Response ([/dim]{message.name}[dim]):[/dim] {content}")
+
+            # If we reach here, the stream completed successfully
+            break
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "rate" in err_str.lower():
+                wait_secs = 45 * (attempt + 1)
+                console.print(f"\n[yellow]⏳ Rate limit hit (attempt {attempt+1}/{max_retries}). Waiting {wait_secs}s before retrying...[/yellow]")
+                _time.sleep(wait_secs)
             else:
-                console.print(f"\n[green]🤖 Agent:[/green] {message.content}")
-        
-        elif message.type == "tool":
-            # For tool responses, truncate if they are too long
-            content = message.content
-            if len(content) > 300:
-                content = content[:300] + "... [truncated]"
-            console.print(f"[dim]🔧 Tool Response ([/dim]{message.name}[dim]):[/dim] {content}")
+                console.print(f"\n[red]Error: {err_str}[/red]")
+                raise
 
     console.print("\n[bold green]✅ Agent execution completed![/bold green]")
 

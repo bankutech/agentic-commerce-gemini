@@ -14,7 +14,7 @@ def get_seed_products() -> list[Product]:
             tags=["phone", "android", "flagship", "ai", "camera"],
             stock=25,
             sku="PIX9PRO-256-BLK",
-            image_url="https://example.com/images/pixel9pro.jpg",
+            image_url="https://loremflickr.com/400/400/smartphone,black?lock=101",
         ),
         Product(
             id="prod_pixel9",
@@ -25,7 +25,7 @@ def get_seed_products() -> list[Product]:
             tags=["phone", "android", "mid-range", "camera"],
             stock=40,
             sku="PIX9-128-GRN",
-            image_url="https://example.com/images/pixel9.jpg",
+            image_url="https://loremflickr.com/400/400/smartphone,green?lock=102",
         ),
         Product(
             id="prod_buds_pro",
@@ -36,7 +36,7 @@ def get_seed_products() -> list[Product]:
             tags=["earbuds", "wireless", "anc", "bluetooth"],
             stock=60,
             sku="PBPRO2-CHR",
-            image_url="https://example.com/images/buds_pro2.jpg",
+            image_url="https://loremflickr.com/400/400/earbuds,wireless?lock=103",
         ),
         Product(
             id="prod_buds_a",
@@ -47,7 +47,7 @@ def get_seed_products() -> list[Product]:
             tags=["earbuds", "wireless", "budget", "bluetooth"],
             stock=100,
             sku="PBA-OLV",
-            image_url="https://example.com/images/buds_a.jpg",
+            image_url="https://loremflickr.com/400/400/earbuds,white?lock=104",
         ),
         Product(
             id="prod_case_pixel9",
@@ -58,7 +58,7 @@ def get_seed_products() -> list[Product]:
             tags=["case", "pixel9", "protection", "silicone"],
             stock=80,
             sku="CASE-PIX9-MINT",
-            image_url="https://example.com/images/case_pixel9.jpg",
+            image_url="https://loremflickr.com/400/400/phonecase,silicone?lock=105",
         ),
         Product(
             id="prod_case_pixel9pro",
@@ -69,7 +69,7 @@ def get_seed_products() -> list[Product]:
             tags=["case", "pixel9pro", "protection", "clear"],
             stock=70,
             sku="CASE-PIX9P-CLR",
-            image_url="https://example.com/images/case_pixel9pro.jpg",
+            image_url="https://loremflickr.com/400/400/phonecase,clear?lock=106",
         ),
         Product(
             id="prod_charger_30w",
@@ -80,7 +80,7 @@ def get_seed_products() -> list[Product]:
             tags=["charger", "usb-c", "fast-charging", "30w"],
             stock=120,
             sku="CHG-30W-WHT",
-            image_url="https://example.com/images/charger_30w.jpg",
+            image_url="https://loremflickr.com/400/400/charger,plug?lock=107",
         ),
         Product(
             id="prod_charger_wireless",
@@ -91,7 +91,7 @@ def get_seed_products() -> list[Product]:
             tags=["charger", "wireless", "stand", "qi"],
             stock=30,
             sku="PXSTAND2-WHT",
-            image_url="https://example.com/images/pixel_stand2.jpg",
+            image_url="https://loremflickr.com/400/400/wirelesscharger,stand?lock=108",
         ),
         Product(
             id="prod_cable_usbc",
@@ -102,7 +102,7 @@ def get_seed_products() -> list[Product]:
             tags=["cable", "usb-c", "charging", "data"],
             stock=200,
             sku="CABLE-CC-2M",
-            image_url="https://example.com/images/cable_usbc.jpg",
+            image_url="https://loremflickr.com/400/400/usbcable?lock=109",
         ),
         Product(
             id="prod_watch3",
@@ -113,7 +113,7 @@ def get_seed_products() -> list[Product]:
             tags=["watch", "smartwatch", "fitness", "health"],
             stock=35,
             sku="PWATCH3-41-SLV",
-            image_url="https://example.com/images/pixel_watch3.jpg",
+            image_url="https://loremflickr.com/400/400/smartwatch,modern?lock=110",
         ),
         Product(
             id="prod_screen_protector",
@@ -124,7 +124,7 @@ def get_seed_products() -> list[Product]:
             tags=["screen-protector", "pixel9", "tempered-glass"],
             stock=150,
             sku="SP-PIX9-TG",
-            image_url="https://example.com/images/screen_protector.jpg",
+            image_url="https://loremflickr.com/400/400/screenprotector,glass?lock=111",
         ),
         Product(
             id="prod_tablet",
@@ -135,6 +135,6 @@ def get_seed_products() -> list[Product]:
             tags=["tablet", "android", "smart-home", "dock"],
             stock=15,
             sku="PTAB-128-PRC",
-            image_url="https://example.com/images/pixel_tablet.jpg",
+            image_url="https://loremflickr.com/400/400/tablet,screen?lock=112",
         ),
     ]

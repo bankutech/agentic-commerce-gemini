@@ -4,3 +4,16 @@ __pycache__/
 audit_log.jsonl
 *.pyc
 .ruff_cache/
+*.db
+*.db-wal
+*.db-shm
+.pytest_cache/
+
+*.db
+*.db-wal
+*.db-shm
+.github/
+__pycache__/
+.pytest_cache/
+.vscode/
+

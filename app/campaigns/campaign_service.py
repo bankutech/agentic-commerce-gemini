@@ -6,16 +6,20 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.models.campaign import Campaign, DiscountType
+from app.db.database import SqliteStore
 
 logger = logging.getLogger(__name__)
 
 
 class CampaignService:
-    """Manage bounded promotional campaigns."""
+    """Manage bounded promotional campaigns. Usage counts (current_uses)
+    are persisted to SQLite so a restart doesn't silently reset how many
+    times a coupon has been redeemed."""
 
-    def __init__(self):
+    def __init__(self, store: Optional[SqliteStore] = None):
         self._campaigns: dict[str, Campaign] = {}  # code -> Campaign
         self._seeded = False
+        self._store = store
 
     def seed_defaults(self) -> int:
         """Create default campaigns for demo purposes."""
@@ -67,10 +71,29 @@ class CampaignService:
                 max_uses=30,
                 valid_until=datetime.now(timezone.utc) + timedelta(days=7),
             ),
+            Campaign(
+                code="BUNDLE500",
+                name="Phone + Earbuds Bundle",
+                description="₹500 off earbuds when bought with a phone",
+                discount_type=DiscountType.FLAT,
+                discount_value=50000,  # ₹500 in paise
+                max_discount_paise=50000,
+                eligible_categories=["audio"],
+                max_uses=200,
+                valid_until=datetime.now(timezone.utc) + timedelta(days=60),
+            ),
         ]
 
         for c in defaults:
             self._campaigns[c.code.upper()] = c
+
+        # Apply persisted usage counts so a restart doesn't reset how many
+        # times each coupon has already been redeemed.
+        if self._store:
+            for code, campaign in self._campaigns.items():
+                persisted = self._store.get(code)
+                if persisted and "current_uses" in persisted:
+                    campaign.current_uses = persisted["current_uses"]
 
         self._seeded = True
         logger.info("Seeded %d default campaigns.", len(defaults))
@@ -123,5 +146,7 @@ class CampaignService:
 
         # Increment usage
         campaign.current_uses += 1
+        if self._store:
+            self._store.set(campaign.code.upper(), {"current_uses": campaign.current_uses})
 
         return discount, explanation, True

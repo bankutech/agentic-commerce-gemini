@@ -18,12 +18,15 @@ from app.catalog.catalog_service import CatalogService
 from app.campaigns.campaign_service import CampaignService
 from app.checkout.cart_service import CartService
 from app.razorpay_client.client import MerchantRazorpayClient
+from app.db.database import SqliteStore
 
 logger = logging.getLogger(__name__)
 
 
 class CheckoutService:
-    """Two-phase checkout: preview → confirm."""
+    """Two-phase checkout: preview → confirm. Orders are persisted to
+    SQLite on creation and on every status change, so a server restart
+    doesn't lose track of an order that's mid-payment."""
 
     def __init__(
         self,
@@ -32,14 +35,32 @@ class CheckoutService:
         campaign_service: CampaignService,
         razorpay_client: MerchantRazorpayClient,
         audit: AuditService,
+        store: Optional[SqliteStore] = None,
     ):
         self._cart_service = cart_service
         self._catalog = catalog
         self._campaigns = campaign_service
         self._razorpay = razorpay_client
         self._audit = audit
+        self._store = store
         self._orders: dict[str, Order] = {}  # order_id -> Order
         self._orders_by_rz: dict[str, str] = {}  # razorpay_order_id -> order_id
+
+        if self._store:
+            for order_id, data in self._store.get_all().items():
+                try:
+                    order = Order.model_validate(data)
+                    self._orders[order_id] = order
+                    if order.razorpay_order_id:
+                        self._orders_by_rz[order.razorpay_order_id] = order_id
+                except Exception as e:
+                    logger.warning("Failed to restore order %s from storage: %s", order_id, e)
+            if self._orders:
+                logger.info("Restored %d order(s) from persistence.", len(self._orders))
+
+    def _persist(self, order: Order) -> None:
+        if self._store:
+            self._store.set(order.id, order.model_dump(mode="json"))
 
     # ------------------------------------------------------------------
     # Phase 1: Preview
@@ -60,8 +81,23 @@ class CheckoutService:
         if not within:
             return None, bound_msg
 
-        # Get recommendations
-        recs = self._cart_service.get_recommendations(cart_id)
+        # Get recommendations (rule engine generates candidates; Gemini
+        # ranks/explains them when configured — see AIRecommendationRanker)
+        recs, rec_method = self._cart_service.get_recommendations(cart_id)
+
+        if recs:
+            self._audit.log_action(
+                action=AuditAction.RECOMMENDATION_MADE,
+                actor=cart.agent_id,
+                explanation=(
+                    f"{len(recs)} recommendation(s) generated via {rec_method} for cart {cart_id}: "
+                    + "; ".join(f"{r.product.name} ({r.rec_type})" for r in recs)
+                ),
+                cart_id=cart_id,
+                gate_check=GateResult.PASSED,
+                gate_details=f"method={rec_method}",
+                metadata={"method": rec_method, "product_ids": [r.product.id for r in recs]},
+            )
 
         preview = {
             "cart_id": cart.id,
@@ -84,6 +120,7 @@ class CheckoutService:
             "campaign_code": cart.campaign_code,
             "spending_bound_status": bound_msg,
             "recommendations": [r.to_dict() for r in recs],
+            "recommendation_method": rec_method,
             "requires_confirmation": True,
         }
 
@@ -264,6 +301,7 @@ class CheckoutService:
         self._orders[order.id] = order
         if order.razorpay_order_id:
             self._orders_by_rz[order.razorpay_order_id] = order.id
+        self._persist(order)
 
         self._audit.log_action(
             action=AuditAction.PAYMENT_LINK_CREATED,
@@ -335,6 +373,7 @@ class CheckoutService:
                 rz_status = plink.data.get("status", "")
                 if rz_status == "paid":
                     order.mark_paid(plink.data.get("payments", [{}])[0].get("payment_id", "poll_detected") if isinstance(plink.data.get("payments"), list) else "poll_detected")
+                    self._persist(order)
                     self._audit.log_action(
                         action=AuditAction.PAYMENT_CAPTURED,
                         actor="system",
@@ -345,8 +384,10 @@ class CheckoutService:
                     )
                 elif rz_status == "expired":
                     order.mark_failed("Payment link expired")
+                    self._persist(order)
                 elif rz_status == "cancelled":
                     order.mark_failed("Payment link cancelled")
+                    self._persist(order)
 
         return {
             "order_id": order.id,
@@ -378,6 +419,8 @@ class CheckoutService:
             return None
         if status == "captured":
             order.mark_paid(payment_id)
+            self._persist(order)
         elif status == "failed":
             order.mark_failed(f"Payment {payment_id} failed")
+            self._persist(order)
         return order
